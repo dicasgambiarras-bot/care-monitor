@@ -1,0 +1,5 @@
+{
+  "name": "Care Monitor",
+  "description": "An application to help manage and monitor the health of a father who has had a stroke. It tracks medications, personal care, appointments, and health metrics, using AI to provide alerts and recommendations for caregivers.",
+  "requestFramePermissions": []
+}
