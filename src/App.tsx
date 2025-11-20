@@ -27,11 +27,9 @@ const WarningIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="
 const XCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
 const HeartIcon = () => <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>;
 const HomeIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>;
-const CalendarIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v2H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v2H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
+const CalendarIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v2H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 00-2-2V7a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v2H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
 const ClipboardListIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 012-2h6a2 2 0 012 2v1h2a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h2V3zM4 7h12v8H4V7zm2 3a1 1 0 100 2h4a1 1 0 100-2H6zm0 4a1 1 0 100 2h4a1 1 0 100-2H6z" /></svg>;
 const UserCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>;
-
-
 
 // Constants for enum-like values (used as actual values)
 const METRIC_TYPES = {
@@ -39,6 +37,8 @@ const METRIC_TYPES = {
   Temperature: 'temperature' as MetricType,
   Glucose: 'glucose' as MetricType,
   Saturation: 'oxygen_saturation' as MetricType,
+  HeartRate: 'heart_rate' as MetricType,
+  Weight: 'weight' as MetricType,
 };
 
 const SCHEDULE_ITEM_TYPES = {
@@ -77,38 +77,29 @@ const USER_ROLES = {
 const generateMockMetrics = (): HealthMetric[] => {
     const metrics: HealthMetric[] = [];
     const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-        const day = new Date(now);
-        day.setDate(now.getDate() - i);
-        
-        metrics.push({id: `bp-${i}`, type: METRIC_TYPES.BloodPressure, value: 130, unit: 'mmHg', timestamp: day});
-        metrics.push({id: `temp-${i}`, type: METRIC_TYPES.Temperature, value: 36.5, unit: '°C', timestamp: day});
-        metrics.push({id: `gluc-${i}`, type: METRIC_TYPES.Glucose, value: 100, unit: 'mg/dL', timestamp: day});
-        metrics.push({id: `sat-${i}`, type: METRIC_TYPES.Saturation, value: 98, unit: '%', timestamp: day});
-    }
+    // Adicionando dados iniciais variados para teste
+    metrics.push({id: 'init-1', type: METRIC_TYPES.BloodPressure, value: { systolic: 120, diastolic: 80 }, unit: 'mmHg', timestamp: now});
+    metrics.push({id: 'init-2', type: METRIC_TYPES.Temperature, value: 36.5, unit: '°C', timestamp: now});
+    
     return metrics.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
 const todayStr = new Date().toISOString().split('T')[0];
-const oneMonthFromNow = new Date();
-oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-const oneMonthFromNowStr = oneMonthFromNow.toISOString().split('T')[0];
 
 const INITIAL_SCHEDULE: ScheduleItem[] = [
     {id: 'med1', type: SCHEDULE_ITEM_TYPES.Medication, title: 'Anticoagulante', startTime: '08:00', date: todayStr, frequency: RECURRENCE.Daily, completedDates: {}},
     {id: 'med2', type: SCHEDULE_ITEM_TYPES.Medication, title: 'Anti-hipertensivo', startTime: '08:00', date: todayStr, frequency: RECURRENCE.Daily, completedDates: {}},
     {id: 'care1', type: SCHEDULE_ITEM_TYPES.Care, title: 'Banho', startTime: '09:00', date: todayStr, frequency: RECURRENCE.Daily, completedDates: {}},
     {id: 'med3', type: SCHEDULE_ITEM_TYPES.Medication, title: 'Vitamina D', startTime: '12:00', date: todayStr, frequency: RECURRENCE.Daily, completedDates: {}},
-    {id: 'appoint1', type: SCHEDULE_ITEM_TYPES.Appointment, title: 'Fonoaudióloga', startTime: '14:00', date: "2024-01-01", frequency: RECURRENCE.Weekly, completedDates: {}},
 ];
 
 const PATIENT_PROFILE_TEMPLATE: Omit<PatientProfile, 'team'> = {
     name: "Nome do Paciente",
-    birthDate: "2000-01-01",
-    gender: "Não especificado",
-    mainCondition: "Não especificada",
-    medicalHistory: "",
-    allergies: "",
+    birthDate: "1950-01-01",
+    gender: "Masculino",
+    mainCondition: "Pós-AVC Isquêmico",
+    medicalHistory: "Hipertensão controlada",
+    allergies: "Nenhuma conhecida",
     surgeries: "",
     emergencyContacts: [],
     physicianContacts: [],
@@ -160,22 +151,18 @@ const App: React.FC = () => {
     // Load or create patient profile when user authenticates
     useEffect(() => {
         if (!authUser) return;
-
         let mounted = true;
-
         const loadOrCreateProfile = async () => {
             try {
                 const ref = doc(db, 'patients', authUser.uid);
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
                     const data = snap.data() as PatientProfile;
-                    // Normalize possible Firestore Timestamp objects in team.joinedAt
                     if (Array.isArray(data.team)) {
                         data.team = data.team.map(member => {
                             const cloned = { ...member } as any;
                             const j = cloned.joinedAt as any;
                             if (j) {
-                                // Firestore Timestamp v9 has toDate()
                                 if (typeof j.toDate === 'function') {
                                     cloned.joinedAt = j.toDate();
                                 } else if (j.seconds != null) {
@@ -187,11 +174,9 @@ const App: React.FC = () => {
                     }
                     if (!mounted) return;
                     setPatientProfile(data);
-                    // pick current user from team if present
                     const me = data.team?.find(m => m.id === authUser.uid) || data.team?.[0] || null;
                     setCurrentUser(me || null);
                 } else {
-                    // create a minimal profile for first-time users
                     const newTeamMember: TeamMember = {
                         id: authUser.uid,
                         name: authUser.email || 'Usuário',
@@ -215,9 +200,7 @@ const App: React.FC = () => {
                 console.error('Erro ao carregar/criar perfil do paciente:', err);
             }
         };
-
         loadOrCreateProfile();
-
         return () => { mounted = false; };
     }, [authUser]);
 
@@ -227,10 +210,7 @@ const App: React.FC = () => {
             await signInWithEmailAndPassword(auth, email, pass);
         } catch (error: any) {
             console.error('Login error', error);
-            const friendlyMessage = error?.code === 'auth/invalid-credential'
-                ? 'Email ou senha inválidos.'
-                : `Ocorreu um erro ao fazer login. (${error?.code || 'unknown'})`;
-            setAuthError(friendlyMessage);
+            setAuthError(error?.code === 'auth/invalid-credential' ? 'Email ou senha inválidos.' : `Erro ao login: ${error?.code}`);
         }
     };
 
@@ -239,7 +219,6 @@ const App: React.FC = () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
             const newUser = userCredential.user;
-
             const newTeamMember: TeamMember = {
                 id: newUser.uid,
                 name: newUser.email || "Novo Usuário",
@@ -247,28 +226,22 @@ const App: React.FC = () => {
                 role: USER_ROLES.Caregiver,
                 joinedAt: new Date(),
             };
-            
             const newProfile: PatientProfile = {
                 ...PATIENT_PROFILE_TEMPLATE,
                 team: [newTeamMember],
                 team_uids: [newUser.uid],
             };
-
             await setDoc(doc(db, "patients", newUser.uid), newProfile);
             setPatientProfile(newProfile);
             setCurrentUser(newTeamMember);
-
         } catch (error: any) {
              console.error('Create account error', error);
-             const friendlyMessage = error?.code === 'auth/email-already-in-use'
-                ? 'Este email já está em uso.'
-                : `Ocorreu um erro ao criar a conta. (${error?.code || 'unknown'})`;
-            setAuthError(friendlyMessage);
+             setAuthError(error?.code === 'auth/email-already-in-use' ? 'Email já em uso.' : `Erro ao criar conta: ${error?.code}`);
         }
     };
     
     const addHistoryEvent = useCallback((event: Omit<HistoryEvent, 'id'>) => {
-        setHistoryLog(prev => [{ ...event, id: `hist-${Date.now()}` } as HistoryEvent, ...prev]);
+        setHistoryLog(prev => [{ ...event, id: `hist-${Date.now()}-${Math.random()}` } as HistoryEvent, ...prev]);
     }, []);
 
     const handleAnalyze = useCallback(async (newestMetric?: HealthMetric) => {
@@ -281,20 +254,13 @@ const App: React.FC = () => {
             setAiAnalysis(analysis);
             
             analysis.alerts.forEach(alert => {
-                addHistoryEvent({ type: HISTORY_EVENT_TYPES.Alert, timestamp: new Date(), title: 'Alerta', description: alert.message });
+                addHistoryEvent({ type: HISTORY_EVENT_TYPES.Alert, timestamp: new Date(), title: 'Alerta IA', description: alert.message });
             });
 
             const criticalAlert = analysis.alerts.find(a => a.level === ALERT_LEVELS.Critical);
             if (criticalAlert) {
-                const caregivers = patientProfile.team?.filter(m => m.role === USER_ROLES.Caregiver).map(m => m.name.split(' ')[0]) || [];
-                const observers = patientProfile.team?.filter(m => m.role !== USER_ROLES.Caregiver).map(m => m.name.split(' ')[0]) || [];
-                let notification = `Alerta Crítico enviado para cuidadores (${caregivers.join(', ')}).`;
-                if (observers.length > 0) {
-                    notification += ` Notificação de emergência enviada para acompanhantes (${observers.join(', ')}).`;
-                }
-                setAlertNotification(notification);
+                setAlertNotification(`ALERTA CRÍTICO: ${criticalAlert.message}`);
             }
-
         } catch (err: any) {
             setError(err.message || 'Ocorreu um erro desconhecido.');
         } finally {
@@ -303,7 +269,7 @@ const App: React.FC = () => {
     }, [metrics, patientProfile, addHistoryEvent]);
 
     useEffect(() => {
-        if(patientProfile) {
+        if(patientProfile && !isInitialMount.current) {
            handleAnalyze();
         }
     }, [patientProfile]);
@@ -311,12 +277,10 @@ const App: React.FC = () => {
     useEffect(() => {
         if (isInitialMount.current) {
             isInitialMount.current = false;
-        } else {
-             if(metrics.length > 0 && patientProfile) {
-                handleAnalyze(metrics[0]);
-             }
+            // Initial load analysis can happen here if needed
+            if (patientProfile) handleAnalyze();
         }
-    }, [metrics]);
+    }, [patientProfile]);
 
     const handleToggleSchedule = (id: string, date: string) => {
         if (!isCaregiver) return;
@@ -348,18 +312,37 @@ const App: React.FC = () => {
         }
     };
 
-    const handleAddMetric = (newMetricData: Omit<HealthMetric, 'id'>) => {
-        const newMetric: HealthMetric = {
-            ...newMetricData,
-            id: `metric-${Date.now()}`,
-        };
+    // -- FUNÇÃO DE ADICIONAR MÉTRICAS EM LOTE (ATUALIZADA) --
+    const handleAddMetric = (newMetricsData: Omit<HealthMetric, 'id'>[]) => {
+        const timestamp = new Date();
+        const newMetricsWithIds: HealthMetric[] = newMetricsData.map(m => ({
+            ...m,
+            id: `metric-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp // garantindo mesmo timestamp para o lote
+        }));
+
+        // Adiciona ao histórico como um evento único de "Check-up"
+        const descriptions = newMetricsData.map(m => {
+             if (m.type === 'blood_pressure' && typeof m.value === 'object') {
+                 return `PA ${m.value.systolic}/${m.value.diastolic}`;
+             }
+             return `${m.type} ${m.value}`;
+        });
+        
         addHistoryEvent({
             type: HISTORY_EVENT_TYPES.Metric,
-            timestamp: newMetric.timestamp,
-            title: 'Métrica registrada',
-            description: `${newMetric.type}: ${newMetric.value} ${newMetric.unit}`
+            timestamp: timestamp,
+            title: 'Sinais Vitais Registrados',
+            description: descriptions.join(', ')
         });
-        setMetrics(prevMetrics => [newMetric, ...prevMetrics].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+
+        setMetrics(prevMetrics => {
+            const updated = [...newMetricsWithIds, ...prevMetrics].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+            // Chama a análise com a primeira métrica nova como "contexto recente", a IA receberá a lista atualizada
+            handleAnalyze(newMetricsWithIds[0]); 
+            return updated;
+        });
+        
         setIsMetricModalOpen(false);
     };
     
@@ -372,14 +355,7 @@ const App: React.FC = () => {
     const handleUpdateTeam = (newTeam: TeamMember[]) => {
         if(!patientProfile) return;
         setPatientProfile(prev => ({...prev!, team: newTeam}));
-        const updatedCurrentUser = newTeam.find(m => m.id === currentUser?.id);
-        if (updatedCurrentUser) {
-            setCurrentUser(updatedCurrentUser);
-        } else if (newTeam.length > 0) {
-            setCurrentUser(newTeam[0]); 
-        } else {
-            setCurrentUser(null);
-        }
+        setIsTeamModalOpen(false);
     };
 
     const handleSaveScheduleItem = (itemData: Omit<ScheduleItem, 'id' | 'completedDates'> & { id?: string }) => {
@@ -421,14 +397,31 @@ const App: React.FC = () => {
 
     const todaySchedule = useMemo(() => getScheduleForDate(schedule, new Date()), [schedule]);
 
+    // -- CÁLCULO DAS MÉTRICAS MAIS RECENTES (ATUALIZADO) --
+    // Garante que pegamos a mais recente de CADA tipo para exibir no dashboard
     const latestMetrics = useMemo(() => {
-      const latest: { [key in MetricType]?: HealthMetric } = {};
-      [...metrics].forEach(metric => {
+      const latest: { [key: string]: HealthMetric } = {};
+      
+      // Percorre todas e guarda apenas a primeira encontrada de cada tipo (já que estão ordenadas por data desc)
+      metrics.forEach(metric => {
           if (!latest[metric.type]) {
             latest[metric.type] = metric;
           }
-        });
-      return Object.values(latest).sort((a,b) => a.type.localeCompare(b.type)) as HealthMetric[];
+      });
+      
+      // Ordem de exibição preferida
+      const preferredOrder = [
+          METRIC_TYPES.BloodPressure, 
+          METRIC_TYPES.Temperature, 
+          METRIC_TYPES.Glucose, 
+          METRIC_TYPES.Saturation, 
+          METRIC_TYPES.HeartRate, 
+          METRIC_TYPES.Weight
+      ];
+
+      return preferredOrder
+        .map(type => latest[type])
+        .filter(Boolean) as HealthMetric[];
     }, [metrics]);
 
     const getAge = (birthDate: string) => {
@@ -441,18 +434,10 @@ const App: React.FC = () => {
         }
         return age;
     }
-    
-    const roleLabels: { [key in UserRole]: string } = {
-        caregiver: 'Cuidador',
-        observer: 'Acompanhante',
-        professional: 'Profissional de Saúde',
-        patient: 'Paciente',
-        physician: 'Médico',
-    }
 
     const renderContent = () => {
         if (!patientProfile) {
-             return <div className="text-center p-10">Carregando perfil do paciente...</div>;
+             return <div className="text-center p-10 text-gray-500">Carregando perfil do paciente...</div>;
         }
         switch (activeView) {
             case 'dashboard':
@@ -480,22 +465,32 @@ const App: React.FC = () => {
     const renderDashboard = () => {
         if (!patientProfile) return null;
         const todayNote = dailyNotes[toYYYYMMDD(new Date())] || { id: '', date: toYYYYMMDD(new Date()), content: '', timestamp: new Date() };
+        
         return (
         <>
-        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-blue-600">{patientProfile.name}, {getAge(patientProfile.birthDate)} anos</h2>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1"><strong>Condição:</strong> {patientProfile.mainCondition}</p>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1"><strong>Histórico:</strong> {patientProfile.medicalHistory}</p>
+        <div className="bg-white p-4 rounded-lg shadow-md mb-6 border-l-4 border-blue-600">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">{patientProfile.name}, {getAge(patientProfile.birthDate)} anos</h2>
+                    <p className="text-sm text-gray-600 mt-1"><strong>Condição:</strong> {patientProfile.mainCondition}</p>
+                </div>
+                <div className="text-right hidden sm:block">
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Monitoramento Ativo</span>
+                </div>
+            </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Coluna da Esquerda: Agenda e Notas */}
+            <div className="lg:col-span-1 space-y-6">
                 <section>
-                    <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Agenda do Dia</h2>
-                    <div className="space-y-2 sm:space-y-3">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <CalendarIcon /> Agenda Hoje
+                    </h2>
+                    <div className="space-y-3">
                         {todaySchedule.length > 0 ?
                             todaySchedule.map(item => <ScheduleCard key={`${item.id}-${toYYYYMMDD(new Date())}`} item={item} onToggle={handleToggleSchedule} occurrenceDate={toYYYYMMDD(new Date())} isCaregiver={isCaregiver} />) :
-                            <p className="text-gray-500 text-sm sm:text-base">Nenhuma tarefa para hoje.</p>
+                            <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">Nenhuma tarefa pendente.</div>
                         }
                     </div>
                 </section>
@@ -506,51 +501,65 @@ const App: React.FC = () => {
                 />
             </div>
 
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+            {/* Coluna Central e Direita: Métricas e IA */}
+            <div className="lg:col-span-2 space-y-6">
                <section>
-                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
-                     <h2 className="text-xl sm:text-2xl font-semibold">Medições Recentes</h2>
+                   <div className="flex justify-between items-center mb-4">
+                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <HeartIcon /> Sinais Vitais
+                     </h2>
                       <button
                         onClick={() => setIsMetricModalOpen(true)}
                         disabled={!isCaregiver}
-                        className="bg-blue-500 text-white font-bold py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-600 flex items-center gap-1 sm:gap-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base whitespace-nowrap"
+                        className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-all shadow-md active:scale-95 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
                       >
                         <PlusCircleIcon />
-                        <span>Registrar</span>
+                        <span>Registrar Check-up</span>
                       </button>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                       {latestMetrics.map(metric => <MetricCard key={metric.id} metric={metric} />)}
+                   
+                   {/* Grid de Cards de Métricas */}
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       {latestMetrics.length > 0 ? (
+                           latestMetrics.map(metric => <MetricCard key={metric.id} metric={metric} />)
+                       ) : (
+                           <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">
+                               Nenhuma medição registrada ainda. Clique em "Registrar Check-up" para começar.
+                           </div>
+                       )}
                    </div>
                </section>
 
                 <section>
-                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-                       <h2 className="text-xl sm:text-2xl font-semibold">Análise da IA</h2>
-                        {isLoading && <span className="text-xs sm:text-sm text-gray-500 flex items-center gap-1"><SparklesIcon className="animate-spin flex-shrink-0"/>Analisando...</span>}
+                     <div className="flex justify-between items-center mb-4">
+                       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                           <SparklesIcon /> Análise Inteligente
+                       </h2>
+                        {isLoading && <span className="text-sm text-blue-600 flex items-center gap-1 animate-pulse">Analisando dados...</span>}
                      </div>
 
-                     <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md min-h-[200px]">
-                        {error && <div className="text-red-500 bg-red-50 p-3 rounded-md text-sm sm:text-base">{error}</div>}
-                        {!error && !aiAnalysis && isLoading && (
-                            <div className="flex justify-center items-center h-full"><p className="text-gray-500 text-sm sm:text-base">Aguarde, a IA está realizando a análise inicial...</p></div>
-                        )}
+                     <div className="bg-white p-5 rounded-lg shadow-md min-h-[200px] border border-gray-100">
+                        {error && <div className="text-red-600 bg-red-50 p-4 rounded-md border border-red-200">{error}</div>}
+                        
                         {!error && !aiAnalysis && !isLoading && (
-                            <div className="text-center text-gray-500 flex flex-col items-center justify-center h-full gap-2">
-                                <SparklesIcon className="text-gray-300 w-10 h-10 sm:w-12 sm:h-12"/>
-                                <p className="text-sm sm:text-base">Nenhuma análise disponível. Registre uma nova medição para obter insights.</p>
+                            <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+                                <span className="text-4xl mb-2">🤖</span>
+                                <p>Aguardando dados para gerar análise...</p>
                             </div>
                         )}
+
                         {aiAnalysis && (
-                            <div className="space-y-4 sm:space-y-6">
+                            <div className="space-y-6">
                                 <div>
-                                    <h3 className="font-bold text-base sm:text-lg">Resumo da IA</h3>
-                                    <p className="text-gray-600 text-sm sm:text-base mt-1">{aiAnalysis.summary}</p>
+                                    <h3 className="font-bold text-lg text-gray-800 mb-2">Resumo do Estado Atual</h3>
+                                    <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                        {aiAnalysis.summary}
+                                    </p>
                                 </div>
                                 
                                 {aiAnalysis.alerts.length > 0 && (
                                     <div>
-                                        <h3 className="font-bold text-base sm:text-lg mb-2">Alertas</h3>
+                                        <h3 className="font-bold text-lg text-gray-800 mb-3">Alertas e Atenção</h3>
                                         <div className="space-y-3">
                                             {aiAnalysis.alerts.map((alert, index) => <AlertCard key={index} alert={alert}/>)}
                                         </div>
@@ -559,9 +568,14 @@ const App: React.FC = () => {
 
                                  {aiAnalysis.recommendations.length > 0 && (
                                     <div>
-                                        <h3 className="font-bold text-base sm:text-lg mb-2">Recomendações</h3>
-                                        <ul className="list-disc list-inside space-y-1 text-gray-600 text-sm sm:text-base">
-                                           {aiAnalysis.recommendations.map((rec, index) => <li key={index}>{rec}</li>)}
+                                        <h3 className="font-bold text-lg text-gray-800 mb-3">Recomendações</h3>
+                                        <ul className="space-y-2">
+                                           {aiAnalysis.recommendations.map((rec, index) => (
+                                               <li key={index} className="flex items-start gap-2 text-gray-700 bg-gray-50 p-2 rounded">
+                                                   <span className="text-blue-500 mt-1">•</span>
+                                                   <span>{rec}</span>
+                                               </li>
+                                           ))}
                                         </ul>
                                     </div>
                                 )}
@@ -575,7 +589,7 @@ const App: React.FC = () => {
     )};
     
     if (isAuthLoading) {
-        return <div className="flex items-center justify-center min-h-screen"><p>Carregando...</p></div>;
+        return <div className="flex items-center justify-center min-h-screen bg-gray-50 text-blue-600 font-semibold">Carregando Care Monitor...</div>;
     }
 
     if (!authUser) {
@@ -583,7 +597,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="bg-gray-50 min-h-screen font-sans text-gray-800">
+        <div className="bg-gray-100 min-h-screen font-sans text-gray-800 pb-20">
              {isMetricModalOpen && (
                 <AddMetricModal
                     isOpen={isMetricModalOpen}
@@ -619,40 +633,34 @@ const App: React.FC = () => {
             <UrgentContactsBar services={URGENT_SERVICES} />
 
             {alertNotification && (
-                <div className="bg-yellow-100 border-b-2 border-yellow-400 text-yellow-800 text-sm text-center py-2 px-4 animate-fade-in-down">
-                     <div className="flex items-center justify-center">
-                        <WarningIcon className="mr-2" />
-                        <span><strong>Notificação:</strong> {alertNotification}</span>
-                        <button onClick={() => setAlertNotification(null)} className="ml-4 text-yellow-600 hover:text-yellow-800"><XCircleIcon /></button>
+                <div className="bg-red-100 border-b-4 border-red-500 text-red-800 p-4 animate-bounce sticky top-0 z-50 shadow-lg">
+                     <div className="container mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-3 font-bold text-lg">
+                            <WarningIcon />
+                            <span>{alertNotification}</span>
+                        </div>
+                        <button onClick={() => setAlertNotification(null)}><XCircleIcon /></button>
                     </div>
                 </div>
             )}
 
-            <header className="bg-white shadow-md sticky top-0 z-10">
-                <div className="container mx-auto px-2 sm:px-4">
-                    <div className="flex justify-between items-center py-3 sm:py-4 gap-2 sm:gap-4 flex-wrap">
-                        <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+            <header className="bg-white shadow-sm sticky top-0 z-40">
+                <div className="container mx-auto px-4">
+                    <div className="flex justify-between items-center py-4">
+                        <div className="flex items-center space-x-2">
                             <HeartIcon />
-                            <h1 className="text-lg sm:text-2xl font-bold text-blue-600 truncate">Care Monitor</h1>
+                            <h1 className="text-2xl font-extrabold text-blue-600 tracking-tight">Care Monitor</h1>
                         </div>
                          {patientProfile && currentUser && (
-                            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                            <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">Perfil:</span>
-                                <select
-                                    value={currentUser.id}
-                                    onChange={(e) => setCurrentUser(patientProfile.team?.find(m => m.id === e.target.value) || null)}
-                                    className="text-xs sm:text-sm font-semibold text-blue-600 bg-gray-100 border-gray-300 rounded-md p-1 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    {patientProfile.team?.map(member => (
-                                        <option key={member.id} value={member.id}>
-                                            {member.name}
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="flex items-center bg-gray-100 rounded-full px-3 py-1 border border-gray-200">
+                                <span className="text-xs text-gray-500 mr-2 uppercase font-bold tracking-wide">Logado como:</span>
+                                <span className="text-sm font-semibold text-gray-700 truncate max-w-[100px] sm:max-w-none">{currentUser.name.split(' ')[0]}</span>
                             </div>
                          )}
                     </div>
-                    <nav className="flex items-center gap-1 sm:gap-2 border-t overflow-x-auto pb-2">
+                    
+                    {/* Navegação Mobile-Friendly */}
+                    <nav className="flex items-center gap-1 sm:gap-4 overflow-x-auto pb-2 no-scrollbar">
                         <NavItem label="Principal" icon={<HomeIcon />} isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} />
                         <NavItem label="Agenda" icon={<CalendarIcon />} isActive={activeView === 'schedule'} onClick={() => setActiveView('schedule')} />
                         <NavItem label="Histórico" icon={<ClipboardListIcon />} isActive={activeView === 'history'} onClick={() => setActiveView('history')} />
@@ -661,7 +669,7 @@ const App: React.FC = () => {
                 </div>
             </header>
             
-            <main className="container mx-auto px-2 sm:px-4 py-4 pb-20">
+            <main className="container mx-auto px-4 py-6">
                {renderContent()}
             </main>
         </div>

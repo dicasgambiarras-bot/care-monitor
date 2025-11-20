@@ -1,34 +1,28 @@
-import React from 'react';
-
 export type MetricType = 'blood_pressure' | 'heart_rate' | 'temperature' | 'glucose' | 'weight' | 'oxygen_saturation';
-export type ScheduleItemType = 'medication' | 'appointment' | 'exercise' | 'meal' | 'rest' | 'monitoring' | 'care';
+export type ScheduleItemType = 'medication' | 'appointment' | 'care';
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'once';
-export type HistoryEventType = 'metric_added' | 'appointment' | 'note' | 'alert' | 'schedule_completed';
+export type HistoryEventType = 'metric_added' | 'alert' | 'schedule_completed' | 'note';
 export type AlertLevel = 'info' | 'warning' | 'critical';
-export type UserRole = 'patient' | 'caregiver' | 'physician' | 'observer' | 'professional';
+export type UserRole = 'patient' | 'caregiver' | 'observer' | 'professional';
 
 export interface HealthMetric {
   id: string;
   type: MetricType;
-  // aceita número simples (ex: bpm) ou objeto para medidas compostas (pressão etc)
-  value: number | { systolic?: number; diastolic?: number; temp?: number; level?: number; spO2?: number };
+  value: number | { systolic?: number; diastolic?: number };
   unit: string;
   timestamp: Date;
-  notes?: string;
 }
 
 export interface ScheduleItem {
   id: string;
   type: ScheduleItemType;
   title: string;
-  description?: string;
-  startTime?: string; // adicionado para compatibilidade com App.tsx
-  endTime?: string;
-  date: string;
-  recurrence?: RecurrenceFrequency;
-  frequency?: RecurrenceFrequency;
-  completedDates?: { [date: string]: boolean };
-  notes?: string;
+  startTime: string; // HH:MM
+  date: string; // Data de início (YYYY-MM-DD)
+  frequency: RecurrenceFrequency;
+  daysOfWeek?: number[]; // 0=Domingo, 1=Segunda... (Para semanal)
+  endDate?: string; // Opcional (Para tratamentos com fim)
+  completedDates: { [date: string]: boolean }; // Registro de quando foi feito
 }
 
 export interface AIAnalysis {
@@ -45,8 +39,6 @@ export interface HistoryEvent {
   title?: string;
   description?: string;
   timestamp: Date;
-  severity?: AlertLevel;
-  data?: any;
 }
 
 export interface DailyNote {
@@ -54,7 +46,6 @@ export interface DailyNote {
   date: string;
   content: string;
   timestamp?: Date;
-  mood?: string;
 }
 
 export interface UrgentService {
@@ -64,28 +55,18 @@ export interface UrgentService {
 }
 
 export interface TeamMember {
-  id: string; // App.tsx usa 'id'
+  id: string;
   name: string;
   email?: string;
   role: UserRole;
-  specialization?: string;
-  phone?: string;
   joinedAt?: Date;
 }
 
-export interface EmergencyContact {
-  id: string;
-  name: string;
-  phone: string;
-  relationship: string;
-}
-
-export interface PhysicianContact {
-  id: string;
-  name: string;
-  phone: string;
-  specialization: string;
-  email?: string;
+export interface Contact {
+    id: string;
+    name: string;
+    relationship: string;
+    phone: string;
 }
 
 export interface PatientProfile {
@@ -96,8 +77,8 @@ export interface PatientProfile {
   medicalHistory: string;
   allergies: string;
   surgeries: string;
-  emergencyContacts: EmergencyContact[];
-  physicianContacts: PhysicianContact[];
+  emergencyContacts: Contact[];
+  physicianContacts: Contact[];
   team_uids: string[];
   team?: TeamMember[];
 }
