@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animation class used in the app */
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-down { animation: fade-in-down .3s ease-out both; }
+
+/* Small helpers to ensure debug panel and other elements render nicely */
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', 'Noto Sans Mono', monospace; }

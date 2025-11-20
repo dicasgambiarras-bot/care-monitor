@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, setDoc, doc } from './firebase/config';
+import { getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { toYYYYMMDD, getScheduleForDate } from './utils/dateUtils';
 import { analyzeHealthData } from './utils/analysisUtils';
@@ -29,6 +30,46 @@ const HomeIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0
 const CalendarIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v2H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v2H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>;
 const ClipboardListIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 012-2h6a2 2 0 012 2v1h2a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h2V3zM4 7h12v8H4V7zm2 3a1 1 0 100 2h4a1 1 0 100-2H6zm0 4a1 1 0 100 2h4a1 1 0 100-2H6z" /></svg>;
 const UserCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>;
+
+// Simple debug panel component (DEV only)
+function DebugPanel(props: { authUser: User | null; patientProfile: PatientProfile | null; aiAnalysis: AIAnalysis | null; authError: string | null; error: string | null; isAuthLoading: boolean; isLoading: boolean }) {
+    const { authUser, patientProfile, aiAnalysis, authError, error, isAuthLoading, isLoading } = props;
+    const [open, setOpen] = React.useState(false);
+    return (
+        <div className="fixed right-4 top-4 z-50">
+            <div className="bg-white border shadow rounded-md p-2 w-80 max-h-[70vh] overflow-auto text-xs font-mono">
+                <div className="flex justify-between items-center mb-2">
+                    <strong className="text-sm">DEBUG</strong>
+                    <div className="flex items-center space-x-2">
+                        <button onClick={() => setOpen(o => !o)} className="px-2 py-0.5 text-xs bg-blue-500 text-white rounded">{open ? 'Fechar' : 'Abrir'}</button>
+                    </div>
+                </div>
+                {open ? (
+                    <div className="space-y-2">
+                        <div><strong>authUser</strong>:</div>
+                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(authUser, null, 2)}</pre>
+
+                        <div><strong>patientProfile</strong>:</div>
+                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(patientProfile, null, 2)}</pre>
+
+                        <div><strong>aiAnalysis</strong>:</div>
+                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(aiAnalysis, null, 2)}</pre>
+
+                        <div className="flex space-x-2">
+                            <div><strong>isAuthLoading:</strong> {String(isAuthLoading)}</div>
+                            <div><strong>isLoading:</strong> {String(isLoading)}</div>
+                        </div>
+
+                        {authError && <div className="text-red-600"><strong>authError:</strong> {authError}</div>}
+                        {error && <div className="text-red-600"><strong>error:</strong> {error}</div>}
+                    </div>
+                ) : (
+                    <div className="text-[11px] text-gray-600">Clique em Abrir para inspecionar estado</div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 // Constants for enum-like values (used as actual values)
 const METRIC_TYPES = {
@@ -153,6 +194,54 @@ const App: React.FC = () => {
         });
         return () => unsubscribe();
     }, []);
+
+    // Load or create patient profile when user authenticates
+    useEffect(() => {
+        if (!authUser) return;
+
+        let mounted = true;
+
+        const loadOrCreateProfile = async () => {
+            try {
+                const ref = doc(db, 'patients', authUser.uid);
+                const snap = await getDoc(ref);
+                if (snap.exists()) {
+                    const data = snap.data() as PatientProfile;
+                    if (!mounted) return;
+                    setPatientProfile(data);
+                    // pick current user from team if present
+                    const me = data.team?.find(m => m.id === authUser.uid) || data.team?.[0] || null;
+                    setCurrentUser(me || null);
+                } else {
+                    // create a minimal profile for first-time users
+                    const newTeamMember: TeamMember = {
+                        id: authUser.uid,
+                        name: authUser.email || 'Usuário',
+                        email: authUser.email || '',
+                        role: USER_ROLES.Caregiver,
+                        joinedAt: new Date(),
+                    } as TeamMember;
+
+                    const newProfile: PatientProfile = {
+                        ...PATIENT_PROFILE_TEMPLATE,
+                        team: [newTeamMember],
+                        team_uids: [authUser.uid],
+                    } as PatientProfile;
+
+                    await setDoc(ref, newProfile);
+                    if (!mounted) return;
+                    setPatientProfile(newProfile);
+                    setCurrentUser(newTeamMember);
+                }
+            } catch (err) {
+                console.error('Erro ao carregar/criar perfil do paciente:', err);
+            }
+        };
+
+        loadOrCreateProfile();
+
+        return () => { mounted = false; };
+    }, [authUser]);
 
     const handleLogin = async (email: string, pass: string) => {
         setAuthError(null);
@@ -517,6 +606,16 @@ const App: React.FC = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen font-sans text-gray-800">
+            {/* Debug panel helps inspect app state during development */}
+            <DebugPanel
+                authUser={authUser}
+                patientProfile={patientProfile}
+                aiAnalysis={aiAnalysis}
+                authError={authError}
+                error={error}
+                isAuthLoading={isAuthLoading}
+                isLoading={isLoading}
+            />
              {isMetricModalOpen && (
                 <AddMetricModal
                     isOpen={isMetricModalOpen}
@@ -567,6 +666,10 @@ const App: React.FC = () => {
                         <div className="flex items-center space-x-2">
                             <HeartIcon />
                             <h1 className="text-2xl font-bold text-blue-600">Care Monitor</h1>
+                            {authUser && (
+                                <span className="ml-3 text-sm text-gray-500">(logado: {authUser.email})</span>
+                            )}
+                            <span className="ml-2 inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded">DEV</span>
                         </div>
                          {patientProfile && currentUser && (
                             <div className="flex items-center space-x-2">
