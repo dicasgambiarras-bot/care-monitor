@@ -107,7 +107,8 @@ export interface PatientProfile {
     surgeries: string; // Using textarea
     emergencyContacts: Contact[];
     physicianContacts: Contact[];
-    team: TeamMember[]; // List of users associated with this patient profile
+    team_uids: string[]; // List of Firebase UIDs of team members
+    team?: TeamMember[]; // List of users associated with this patient profile
 }
 
 // --- History & Notes ---
