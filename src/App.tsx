@@ -31,45 +31,7 @@ const CalendarIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox=
 const ClipboardListIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 012-2h6a2 2 0 012 2v1h2a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h2V3zM4 7h12v8H4V7zm2 3a1 1 0 100 2h4a1 1 0 100-2H6zm0 4a1 1 0 100 2h4a1 1 0 100-2H6z" /></svg>;
 const UserCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>;
 
-// Simple debug panel component (DEV only)
-function DebugPanel(props: { authUser: User | null; patientProfile: PatientProfile | null; aiAnalysis: AIAnalysis | null; authError: string | null; error: string | null; isAuthLoading: boolean; isLoading: boolean }) {
-    const { authUser, patientProfile, aiAnalysis, authError, error, isAuthLoading, isLoading } = props;
-    const [open, setOpen] = React.useState(false);
-    return (
-        <div className="fixed right-4 top-4 z-50">
-            <div className="bg-white border shadow rounded-md p-2 w-80 max-h-[70vh] overflow-auto text-xs font-mono">
-                <div className="flex justify-between items-center mb-2">
-                    <strong className="text-sm">DEBUG</strong>
-                    <div className="flex items-center space-x-2">
-                        <button onClick={() => setOpen(o => !o)} className="px-2 py-0.5 text-xs bg-blue-500 text-white rounded">{open ? 'Fechar' : 'Abrir'}</button>
-                    </div>
-                </div>
-                {open ? (
-                    <div className="space-y-2">
-                        <div><strong>authUser</strong>:</div>
-                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(authUser, null, 2)}</pre>
 
-                        <div><strong>patientProfile</strong>:</div>
-                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(patientProfile, null, 2)}</pre>
-
-                        <div><strong>aiAnalysis</strong>:</div>
-                        <pre className="whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">{JSON.stringify(aiAnalysis, null, 2)}</pre>
-
-                        <div className="flex space-x-2">
-                            <div><strong>isAuthLoading:</strong> {String(isAuthLoading)}</div>
-                            <div><strong>isLoading:</strong> {String(isLoading)}</div>
-                        </div>
-
-                        {authError && <div className="text-red-600"><strong>authError:</strong> {authError}</div>}
-                        {error && <div className="text-red-600"><strong>error:</strong> {error}</div>}
-                    </div>
-                ) : (
-                    <div className="text-[11px] text-gray-600">Clique em Abrir para inspecionar estado</div>
-                )}
-            </div>
-        </div>
-    );
-}
 
 // Constants for enum-like values (used as actual values)
 const METRIC_TYPES = {
@@ -207,6 +169,22 @@ const App: React.FC = () => {
                 const snap = await getDoc(ref);
                 if (snap.exists()) {
                     const data = snap.data() as PatientProfile;
+                    // Normalize possible Firestore Timestamp objects in team.joinedAt
+                    if (Array.isArray(data.team)) {
+                        data.team = data.team.map(member => {
+                            const cloned = { ...member } as any;
+                            const j = cloned.joinedAt as any;
+                            if (j) {
+                                // Firestore Timestamp v9 has toDate()
+                                if (typeof j.toDate === 'function') {
+                                    cloned.joinedAt = j.toDate();
+                                } else if (j.seconds != null) {
+                                    cloned.joinedAt = new Date((Number(j.seconds) * 1000) + (Number(j.nanoseconds || 0) / 1e6));
+                                }
+                            }
+                            return cloned;
+                        });
+                    }
                     if (!mounted) return;
                     setPatientProfile(data);
                     // pick current user from team if present
@@ -504,20 +482,20 @@ const App: React.FC = () => {
         const todayNote = dailyNotes[toYYYYMMDD(new Date())] || { id: '', date: toYYYYMMDD(new Date()), content: '', timestamp: new Date() };
         return (
         <>
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-            <h2 className="text-xl font-bold">{patientProfile.name}, {getAge(patientProfile.birthDate)} anos</h2>
-            <p className="text-sm text-gray-600"><strong>Condição:</strong> {patientProfile.mainCondition}</p>
-            <p className="text-sm text-gray-600"><strong>Histórico:</strong> {patientProfile.medicalHistory}</p>
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-bold text-blue-600">{patientProfile.name}, {getAge(patientProfile.birthDate)} anos</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1"><strong>Condição:</strong> {patientProfile.mainCondition}</p>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1"><strong>Histórico:</strong> {patientProfile.medicalHistory}</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
                 <section>
-                    <h2 className="text-xl font-semibold mb-4">Agenda do Dia</h2>
-                    <div className="space-y-3">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Agenda do Dia</h2>
+                    <div className="space-y-2 sm:space-y-3">
                         {todaySchedule.length > 0 ?
                             todaySchedule.map(item => <ScheduleCard key={`${item.id}-${toYYYYMMDD(new Date())}`} item={item} onToggle={handleToggleSchedule} occurrenceDate={toYYYYMMDD(new Date())} isCaregiver={isCaregiver} />) :
-                            <p className="text-gray-500">Nenhuma tarefa para hoje.</p>
+                            <p className="text-gray-500 text-sm sm:text-base">Nenhuma tarefa para hoje.</p>
                         }
                     </div>
                 </section>
@@ -528,51 +506,51 @@ const App: React.FC = () => {
                 />
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                <section>
-                   <div className="flex justify-between items-center mb-4">
-                     <h2 className="text-xl font-semibold mb-4">Medições Recentes</h2>
+                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
+                     <h2 className="text-xl sm:text-2xl font-semibold">Medições Recentes</h2>
                       <button
                         onClick={() => setIsMetricModalOpen(true)}
                         disabled={!isCaregiver}
-                        className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 flex items-center space-x-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        className="bg-blue-500 text-white font-bold py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-600 flex items-center gap-1 sm:gap-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base whitespace-nowrap"
                       >
                         <PlusCircleIcon />
                         <span>Registrar</span>
                       </button>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                        {latestMetrics.map(metric => <MetricCard key={metric.id} metric={metric} />)}
                    </div>
                </section>
 
                 <section>
-                     <div className="flex justify-between items-center mb-4">
-                       <h2 className="text-xl font-semibold">Análise da IA</h2>
-                        {isLoading && <span className="text-sm text-gray-500 flex items-center"><SparklesIcon className="mr-2 animate-spin"/>Analisando...</span>}
+                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                       <h2 className="text-xl sm:text-2xl font-semibold">Análise da IA</h2>
+                        {isLoading && <span className="text-xs sm:text-sm text-gray-500 flex items-center gap-1"><SparklesIcon className="animate-spin flex-shrink-0"/>Analisando...</span>}
                      </div>
 
-                     <div className="bg-white p-4 rounded-lg shadow-md min-h-[200px]">
-                        {error && <div className="text-red-500 bg-red-50 p-3 rounded-md">{error}</div>}
+                     <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md min-h-[200px]">
+                        {error && <div className="text-red-500 bg-red-50 p-3 rounded-md text-sm sm:text-base">{error}</div>}
                         {!error && !aiAnalysis && isLoading && (
-                            <div className="flex justify-center items-center h-full"><p className="text-gray-500">Aguarde, a IA está realizando a análise inicial...</p></div>
+                            <div className="flex justify-center items-center h-full"><p className="text-gray-500 text-sm sm:text-base">Aguarde, a IA está realizando a análise inicial...</p></div>
                         )}
                         {!error && !aiAnalysis && !isLoading && (
-                            <div className="text-center text-gray-500 flex flex-col items-center justify-center h-full">
-                                <SparklesIcon className="text-gray-300 mb-2 w-12 h-12"/>
-                                <p>Nenhuma análise disponível. Registre uma nova medição para obter insights.</p>
+                            <div className="text-center text-gray-500 flex flex-col items-center justify-center h-full gap-2">
+                                <SparklesIcon className="text-gray-300 w-10 h-10 sm:w-12 sm:h-12"/>
+                                <p className="text-sm sm:text-base">Nenhuma análise disponível. Registre uma nova medição para obter insights.</p>
                             </div>
                         )}
                         {aiAnalysis && (
-                            <div className="space-y-4">
+                            <div className="space-y-4 sm:space-y-6">
                                 <div>
-                                    <h3 className="font-bold text-lg">Resumo da IA</h3>
-                                    <p className="text-gray-600 mt-1">{aiAnalysis.summary}</p>
+                                    <h3 className="font-bold text-base sm:text-lg">Resumo da IA</h3>
+                                    <p className="text-gray-600 text-sm sm:text-base mt-1">{aiAnalysis.summary}</p>
                                 </div>
                                 
                                 {aiAnalysis.alerts.length > 0 && (
                                     <div>
-                                        <h3 className="font-bold text-lg mb-2">Alertas</h3>
+                                        <h3 className="font-bold text-base sm:text-lg mb-2">Alertas</h3>
                                         <div className="space-y-3">
                                             {aiAnalysis.alerts.map((alert, index) => <AlertCard key={index} alert={alert}/>)}
                                         </div>
@@ -581,8 +559,8 @@ const App: React.FC = () => {
 
                                  {aiAnalysis.recommendations.length > 0 && (
                                     <div>
-                                        <h3 className="font-bold text-lg mb-2">Recomendações</h3>
-                                        <ul className="list-disc list-inside space-y-1 text-gray-600">
+                                        <h3 className="font-bold text-base sm:text-lg mb-2">Recomendações</h3>
+                                        <ul className="list-disc list-inside space-y-1 text-gray-600 text-sm sm:text-base">
                                            {aiAnalysis.recommendations.map((rec, index) => <li key={index}>{rec}</li>)}
                                         </ul>
                                     </div>
@@ -606,16 +584,6 @@ const App: React.FC = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen font-sans text-gray-800">
-            {/* Debug panel helps inspect app state during development */}
-            <DebugPanel
-                authUser={authUser}
-                patientProfile={patientProfile}
-                aiAnalysis={aiAnalysis}
-                authError={authError}
-                error={error}
-                isAuthLoading={isAuthLoading}
-                isLoading={isLoading}
-            />
              {isMetricModalOpen && (
                 <AddMetricModal
                     isOpen={isMetricModalOpen}
@@ -661,43 +629,39 @@ const App: React.FC = () => {
             )}
 
             <header className="bg-white shadow-md sticky top-0 z-10">
-                <div className="container mx-auto px-4">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center space-x-2">
+                <div className="container mx-auto px-2 sm:px-4">
+                    <div className="flex justify-between items-center py-3 sm:py-4 gap-2 sm:gap-4 flex-wrap">
+                        <div className="flex items-center space-x-1 sm:space-x-2 min-w-0">
                             <HeartIcon />
-                            <h1 className="text-2xl font-bold text-blue-600">Care Monitor</h1>
-                            {authUser && (
-                                <span className="ml-3 text-sm text-gray-500">(logado: {authUser.email})</span>
-                            )}
-                            <span className="ml-2 inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded">DEV</span>
+                            <h1 className="text-lg sm:text-2xl font-bold text-blue-600 truncate">Care Monitor</h1>
                         </div>
                          {patientProfile && currentUser && (
-                            <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500">Perfil de Acesso:</span>
+                            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                            <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">Perfil:</span>
                                 <select
                                     value={currentUser.id}
                                     onChange={(e) => setCurrentUser(patientProfile.team?.find(m => m.id === e.target.value) || null)}
-                                    className="text-sm font-semibold text-blue-600 bg-gray-100 border-gray-300 rounded-md p-1 focus:ring-blue-500 focus:border-blue-500"
+                                    className="text-xs sm:text-sm font-semibold text-blue-600 bg-gray-100 border-gray-300 rounded-md p-1 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     {patientProfile.team?.map(member => (
                                         <option key={member.id} value={member.id}>
-                                            {member.name} ({roleLabels[member.role]})
+                                            {member.name}
                                         </option>
                                     ))}
                                 </select>
                             </div>
                          )}
                     </div>
-                    <nav className="flex items-center space-x-2 border-t">
-                        <NavItem label="Painel Principal" icon={<HomeIcon />} isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} />
+                    <nav className="flex items-center gap-1 sm:gap-2 border-t overflow-x-auto pb-2">
+                        <NavItem label="Principal" icon={<HomeIcon />} isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} />
                         <NavItem label="Agenda" icon={<CalendarIcon />} isActive={activeView === 'schedule'} onClick={() => setActiveView('schedule')} />
                         <NavItem label="Histórico" icon={<ClipboardListIcon />} isActive={activeView === 'history'} onClick={() => setActiveView('history')} />
-                        <NavItem label="Perfil do Paciente" icon={<UserCircleIcon />} isActive={activeView === 'profile'} onClick={() => setActiveView('profile')} />
+                        <NavItem label="Perfil" icon={<UserCircleIcon />} isActive={activeView === 'profile'} onClick={() => setActiveView('profile')} />
                     </nav>
                 </div>
             </header>
             
-            <main className="container mx-auto p-4 pb-20">
+            <main className="container mx-auto px-2 sm:px-4 py-4 pb-20">
                {renderContent()}
             </main>
         </div>
