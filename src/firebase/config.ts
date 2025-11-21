@@ -12,7 +12,9 @@ import {
   getDoc, 
   onSnapshot, 
   query, 
-  orderBy 
+  orderBy,
+  where,    // Adicionado
+  getDocs   // Adicionado
 } from "firebase/firestore";
 
 export type { User } from "firebase/auth";
@@ -31,7 +33,9 @@ export {
   getDoc,
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+  where,    // Exportando
+  getDocs   // Exportando
 };
 
 const firebaseConfig = {
