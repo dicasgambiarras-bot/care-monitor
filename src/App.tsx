@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { 
   auth, db, 
@@ -7,12 +7,12 @@ import {
   createUserWithEmailAndPassword, 
   setDoc, doc, 
   collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy,
-  where, getDocs // IMPORTANTE: where e getDocs adicionados
+  where, getDocs, getDoc // CORREÇÃO: getDoc importado daqui
 } from './firebase/config';
-import { signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth'; // signOut importado direto do auth
 import type { User } from 'firebase/auth';
 import { toYYYYMMDD, getScheduleForDate } from './utils/dateUtils';
-import { analyzeHealthData } from './services/geminiService'; // Caminho corrigido
+import { analyzeHealthData } from './services/geminiService';
 import { ScheduleCard } from './components/ScheduleCard';
 import { MetricCard } from './components/MetricCard';
 import { AlertCard } from './components/AlertCard';
@@ -28,7 +28,7 @@ import { SchedulePage } from './components/SchedulePage';
 import { HistoryPage } from './components/HistoryPage';
 import type { PatientProfile, HealthMetric, ScheduleItem, AIAnalysis, HistoryEvent, DailyNote, UrgentService, TeamMember, UserRole, MetricType, ScheduleItemType, RecurrenceFrequency, HistoryEventType, AlertLevel } from './types';
 
-// --- Ícones (Mantidos iguais) ---
+// --- Ícones SVG ---
 const PlusCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>;
 const SparklesIcon = () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
 const WarningIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
@@ -48,14 +48,14 @@ const PATIENT_PROFILE_TEMPLATE: Omit<PatientProfile, 'team'> = { name: "Nome do 
 const URGENT_SERVICES: UrgentService[] = [{ name: "SAMU", phone: "192", type: "ambulance" }, { name: "Bombeiros", phone: "193", type: "fire" }, { name: "Polícia Militar", phone: "190", type: "police" }];
 
 const App: React.FC = () => {
-    // Estados Principais
+    // Estados
     const [metrics, setMetrics] = useState<HealthMetric[]>([]);
     const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
     const [historyLog, setHistoryLog] = useState<HistoryEvent[]>([]);
     const [dailyNotes, setDailyNotes] = useState<{ [date: string]: DailyNote }>({});
     
     const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
-    const [patientDocId, setPatientDocId] = useState<string | null>(null); // ID do documento do paciente sendo visualizado
+    const [patientDocId, setPatientDocId] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
     const [authUser, setAuthUser] = useState<User | null>(null);
     
@@ -75,16 +75,16 @@ const App: React.FC = () => {
 
     const isCaregiver = currentUser?.role === USER_ROLES.Caregiver;
 
-    // Solicitar permissão de notificação ao iniciar
-    useEffect(() => {
+    // Função auxiliar para pedir notificação
+    const requestNotificationPermission = () => {
         if ('Notification' in window && Notification.permission !== 'granted') {
             Notification.requestPermission();
         }
-    }, []);
+    };
 
     const sendSystemNotification = (title: string, body: string) => {
         if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(title, { body, icon: '/vite.svg' }); // Ícone padrão do Vite por enquanto
+            new Notification(title, { body, icon: '/vite.svg' });
         }
         setAlertNotification(`${title}: ${body}`);
     };
@@ -105,13 +105,13 @@ const App: React.FC = () => {
         return () => unsubscribe();
     }, []);
 
-    // 2. Determinar qual Paciente carregar (Lógica de Equipe)
+    // 2. Determinar Paciente (Busca Compartilhada)
     useEffect(() => {
         if (!authUser) return;
 
         const findPatient = async () => {
             try {
-                // A. Tenta encontrar meu próprio perfil de paciente
+                // A. Tenta encontrar meu próprio perfil
                 const myProfileRef = doc(db, 'patients', authUser.uid);
                 const myProfileSnap = await getDoc(myProfileRef);
 
@@ -120,15 +120,15 @@ const App: React.FC = () => {
                     return;
                 }
 
-                // B. Se não tenho perfil próprio, procuro onde sou membro da equipe
-                const q = query(collection(db, 'patients'), where('team_uids', 'array-contains', authUser.uid));
+                // B. Procura onde sou membro da equipe (email)
+                // Obs: Isso requer um índice composto no futuro se a query ficar complexa, mas para MVP funciona
+                const q = query(collection(db, 'patients'), where('team_emails', 'array-contains', authUser.email));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    // Pega o primeiro paciente que encontrar (futuro: lista de pacientes para escolher)
                     setPatientDocId(querySnapshot.docs[0].id);
                 } else {
-                    // C. Se não existe em lugar nenhum, cria um novo para mim
+                    // C. Cria novo
                     const newTeamMember: TeamMember = {
                         id: authUser.uid,
                         name: authUser.email?.split('@')[0] || 'Usuário',
@@ -140,7 +140,7 @@ const App: React.FC = () => {
                         ...PATIENT_PROFILE_TEMPLATE, 
                         team: [newTeamMember], 
                         team_uids: [authUser.uid],
-                        team_emails: [authUser.email] // Campo auxiliar para busca futura
+                        team_emails: [authUser.email] 
                     };
                     await setDoc(myProfileRef, newProfile);
                     setPatientDocId(authUser.uid);
@@ -153,22 +153,19 @@ const App: React.FC = () => {
         findPatient();
     }, [authUser]);
 
-    // 3. Carregar Dados do Paciente Selecionado
+    // 3. Carregar Dados
     useEffect(() => {
         if (!patientDocId || !authUser) return;
 
-        // A. Perfil
         const unsubProfile = onSnapshot(doc(db, 'patients', patientDocId), (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as PatientProfile;
                 setPatientProfile(data);
-                // Identifica quem sou eu na equipe deste paciente
                 const me = data.team?.find(m => m.email === authUser.email || m.id === authUser.uid);
                 setCurrentUser(me || { id: authUser.uid, name: 'Visitante', role: USER_ROLES.Observer });
             }
         });
 
-        // B. Sub-coleções
         const metricsRef = collection(db, 'patients', patientDocId, 'metrics');
         const unsubMetrics = onSnapshot(query(metricsRef, orderBy('timestamp', 'desc')), (snap) => {
             setMetrics(snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() })) as HealthMetric[]);
@@ -198,14 +195,18 @@ const App: React.FC = () => {
 
     const handleLogin = async (email: string, pass: string) => {
         setAuthError(null);
-        try { await signInWithEmailAndPassword(auth, email, pass); } 
-        catch (err: any) { setAuthError('Erro ao login. Verifique credenciais.'); }
+        try { 
+            await signInWithEmailAndPassword(auth, email, pass); 
+            requestNotificationPermission(); // Pede permissão ao logar
+        } catch (err: any) { setAuthError('Erro ao login. Verifique credenciais.'); }
     };
 
     const handleCreateAccount = async (email: string, pass: string) => {
         setAuthError(null);
-        try { await createUserWithEmailAndPassword(auth, email, pass); } 
-        catch (err: any) { setAuthError('Erro ao criar conta. Tente outro email.'); }
+        try { 
+            await createUserWithEmailAndPassword(auth, email, pass); 
+            requestNotificationPermission(); // Pede permissão ao criar
+        } catch (err: any) { setAuthError('Erro ao criar conta. Tente outro email.'); }
     };
 
     const handleLogout = async () => {
@@ -229,7 +230,6 @@ const App: React.FC = () => {
             analysis.alerts.forEach(alert => {
                 addHistoryEvent({ type: 'alert', timestamp: new Date(), title: 'Alerta IA', description: alert.message });
                 
-                // Lógica de Notificação por Papel
                 if (alert.level === ALERT_LEVELS.Critical) {
                     sendSystemNotification('ALERTA CRÍTICO', alert.message);
                 } else if (alert.level === ALERT_LEVELS.Warning && isCaregiver) {
@@ -294,7 +294,7 @@ const App: React.FC = () => {
 
         if (isCompleting) {
             newCompletedDates[date] = true;
-            addHistoryEvent({ type: 'schedule_completed', timestamp: new Date(), title: `${item.title} OK`, description: date });
+            addHistoryEvent({ type: 'schedule_completed', timestamp: new Date(), title: `${item.title} realizado`, description: `Tarefa completada em ${date}` });
         } else {
             delete newCompletedDates[date];
         }
@@ -309,14 +309,10 @@ const App: React.FC = () => {
 
     const handleUpdateTeam = async (newTeam: TeamMember[]) => {
         if (!patientDocId || !isCaregiver) return;
-        // Atualiza também os arrays auxiliares para permitir busca
-        const teamUids = newTeam.map(m => m.id).filter(id => id && id.length > 5); // IDs reais
-        const teamEmails = newTeam.map(m => m.email).filter(e => e); // Emails
+        const teamEmails = newTeam.map(m => m.email).filter(e => e);
         
         await updateDoc(doc(db, 'patients', patientDocId), { 
             team: newTeam,
-            team_uids: teamUids, // Nota: Para funcionar perfeitamente, precisaria converter email para UID na hora do cadastro, mas isso exige Cloud Functions. 
-            // Workaround: Vamos confiar que a busca do useEffect procura pelo ID do dono E também pelo email nos team_emails (implementado abaixo).
             team_emails: teamEmails
         });
         setIsTeamModalOpen(false);
@@ -327,7 +323,7 @@ const App: React.FC = () => {
         await setDoc(doc(db, 'patients', patientDocId, 'notes', date), { date, content, timestamp: new Date() }, { merge: true });
     };
 
-    // ... (Renderização permanece muito similar, apenas apontando para as variáveis de estado)
+    // Render Helpers
     const todaySchedule = useMemo(() => getScheduleForDate(schedule, new Date()), [schedule]);
     const latestMetrics = useMemo(() => {
         const latest: { [key: string]: HealthMetric } = {};
