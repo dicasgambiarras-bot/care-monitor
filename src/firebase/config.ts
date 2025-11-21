@@ -1,14 +1,38 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { 
+  getFirestore, 
+  connectFirestoreEmulator, 
+  collection, 
+  doc, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDoc, 
+  onSnapshot, 
+  query, 
+  orderBy 
+} from "firebase/firestore";
 
+export type { User } from "firebase/auth";
+
+// Exportando as funções para usar no App.tsx
 export { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  onAuthStateChanged 
-} from "firebase/auth";
-export { setDoc, doc } from "firebase/firestore";
-export type { User } from "firebase/auth";
+  onAuthStateChanged,
+  collection,
+  doc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  onSnapshot,
+  query,
+  orderBy
+};
 
 const firebaseConfig = {
   apiKey: "AIzaSyAFej_A0sFo1F1-s9O-0MEJOdH-MviKi_U",
@@ -25,22 +49,18 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// If running in development and the emulator is available, connect to it.
-// You can force emulator usage by setting VITE_USE_FIREBASE_EMULATOR=true in your .env
+// Lógica do Emulador vs Produção
 const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const useEmulator = (import.meta.env && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') || isLocalhost;
+
+// Correção do erro de TS aqui usando casting 'as any'
+const useEmulator = ((import.meta as any).env && (import.meta as any).env.VITE_USE_FIREBASE_EMULATOR === 'true') || isLocalhost;
 
 if (useEmulator) {
   try {
-    // Auth emulator runs by default on 9099
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    // connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    // connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    console.log("Modo emulador/local configurado.");
   } catch (e) {
-    // ignore if emulator not available
-  }
-  try {
-    // Firestore emulator default port 8080
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
-  } catch (e) {
-    // ignore
+    console.error("Erro ao conectar emulador", e);
   }
 }
