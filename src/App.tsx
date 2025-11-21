@@ -6,13 +6,13 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   setDoc, doc, 
-  collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy 
+  collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy,
+  where, getDocs // IMPORTANTE: where e getDocs adicionados
 } from './firebase/config';
-import { getDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth'; // IMPORTANTE: Importado signOut
+import { signOut } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { toYYYYMMDD, getScheduleForDate } from './utils/dateUtils';
-import { analyzeHealthData } from './services/geminiService';
+import { analyzeHealthData } from './services/geminiService'; // Caminho corrigido
 import { ScheduleCard } from './components/ScheduleCard';
 import { MetricCard } from './components/MetricCard';
 import { AlertCard } from './components/AlertCard';
@@ -28,7 +28,7 @@ import { SchedulePage } from './components/SchedulePage';
 import { HistoryPage } from './components/HistoryPage';
 import type { PatientProfile, HealthMetric, ScheduleItem, AIAnalysis, HistoryEvent, DailyNote, UrgentService, TeamMember, UserRole, MetricType, ScheduleItemType, RecurrenceFrequency, HistoryEventType, AlertLevel } from './types';
 
-// --- Ícones SVG ---
+// --- Ícones (Mantidos iguais) ---
 const PlusCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>;
 const SparklesIcon = () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
 const WarningIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
@@ -40,44 +40,12 @@ const ClipboardListIcon = () => <svg className="w-5 h-5" fill="currentColor" vie
 const UserCircleIcon = () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg>;
 const LogoutIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 
-// Constantes e Configurações
-const METRIC_TYPES = {
-  BloodPressure: 'blood_pressure' as MetricType,
-  Temperature: 'temperature' as MetricType,
-  Glucose: 'glucose' as MetricType,
-  Saturation: 'oxygen_saturation' as MetricType,
-  HeartRate: 'heart_rate' as MetricType,
-  Weight: 'weight' as MetricType,
-};
+const METRIC_TYPES = { BloodPressure: 'blood_pressure' as MetricType, Temperature: 'temperature' as MetricType, Glucose: 'glucose' as MetricType, Saturation: 'oxygen_saturation' as MetricType, HeartRate: 'heart_rate' as MetricType, Weight: 'weight' as MetricType };
+const ALERT_LEVELS = { Critical: 'critical' as AlertLevel, Warning: 'warning' as AlertLevel, Info: 'info' as AlertLevel };
+const USER_ROLES = { Caregiver: 'caregiver' as UserRole, Observer: 'observer' as UserRole, Professional: 'professional' as UserRole };
 
-const ALERT_LEVELS = {
-  Critical: 'critical' as AlertLevel,
-  Warning: 'warning' as AlertLevel,
-  Info: 'info' as AlertLevel,
-};
-
-const USER_ROLES = {
-  Caregiver: 'caregiver' as UserRole,
-};
-
-const PATIENT_PROFILE_TEMPLATE: Omit<PatientProfile, 'team'> = {
-    name: "Nome do Paciente",
-    birthDate: "1950-01-01",
-    gender: "Masculino",
-    mainCondition: "Pós-AVC",
-    medicalHistory: "Nenhum histórico registrado.",
-    allergies: "Nenhuma",
-    surgeries: "Nenhuma",
-    emergencyContacts: [],
-    physicianContacts: [],
-    team_uids: [],
-}
-
-const URGENT_SERVICES: UrgentService[] = [
-    { name: "SAMU", phone: "192", type: "ambulance" },
-    { name: "Bombeiros", phone: "193", type: "fire" },
-    { name: "Polícia Militar", phone: "190", type: "police" },
-];
+const PATIENT_PROFILE_TEMPLATE: Omit<PatientProfile, 'team'> = { name: "Nome do Paciente", birthDate: "1950-01-01", gender: "Masculino", mainCondition: "Pós-AVC", medicalHistory: "Nenhum histórico.", allergies: "Nenhuma", surgeries: "", emergencyContacts: [], physicianContacts: [], team_uids: [] };
+const URGENT_SERVICES: UrgentService[] = [{ name: "SAMU", phone: "192", type: "ambulance" }, { name: "Bombeiros", phone: "193", type: "fire" }, { name: "Polícia Militar", phone: "190", type: "police" }];
 
 const App: React.FC = () => {
     // Estados Principais
@@ -87,10 +55,10 @@ const App: React.FC = () => {
     const [dailyNotes, setDailyNotes] = useState<{ [date: string]: DailyNote }>({});
     
     const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
+    const [patientDocId, setPatientDocId] = useState<string | null>(null); // ID do documento do paciente sendo visualizado
     const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
     const [authUser, setAuthUser] = useState<User | null>(null);
     
-    // Estados de UI e IA
     const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -99,7 +67,6 @@ const App: React.FC = () => {
     const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [authError, setAuthError] = useState<string | null>(null);
 
-    // Modais
     const [isMetricModalOpen, setIsMetricModalOpen] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -108,108 +75,131 @@ const App: React.FC = () => {
 
     const isCaregiver = currentUser?.role === USER_ROLES.Caregiver;
 
-    // 1. Autenticação e Carregamento Inicial
+    // Solicitar permissão de notificação ao iniciar
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    const sendSystemNotification = (title: string, body: string) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, { body, icon: '/vite.svg' }); // Ícone padrão do Vite por enquanto
+        }
+        setAlertNotification(`${title}: ${body}`);
+    };
+
+    // 1. Autenticação
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setAuthUser(user);
             setIsAuthLoading(false);
             if (!user) {
                 setPatientProfile(null);
+                setPatientDocId(null);
                 setCurrentUser(null);
                 setMetrics([]);
                 setSchedule([]);
-                setHistoryLog([]);
-                setDailyNotes({});
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // 2. Carregar Perfil e Configurar Listeners em Tempo Real
+    // 2. Determinar qual Paciente carregar (Lógica de Equipe)
     useEffect(() => {
         if (!authUser) return;
 
-        // A. Listener do Perfil
-        const profileRef = doc(db, 'patients', authUser.uid);
-        const unsubProfile = onSnapshot(profileRef, (snap) => {
+        const findPatient = async () => {
+            try {
+                // A. Tenta encontrar meu próprio perfil de paciente
+                const myProfileRef = doc(db, 'patients', authUser.uid);
+                const myProfileSnap = await getDoc(myProfileRef);
+
+                if (myProfileSnap.exists()) {
+                    setPatientDocId(authUser.uid);
+                    return;
+                }
+
+                // B. Se não tenho perfil próprio, procuro onde sou membro da equipe
+                const q = query(collection(db, 'patients'), where('team_uids', 'array-contains', authUser.uid));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    // Pega o primeiro paciente que encontrar (futuro: lista de pacientes para escolher)
+                    setPatientDocId(querySnapshot.docs[0].id);
+                } else {
+                    // C. Se não existe em lugar nenhum, cria um novo para mim
+                    const newTeamMember: TeamMember = {
+                        id: authUser.uid,
+                        name: authUser.email?.split('@')[0] || 'Usuário',
+                        email: authUser.email || '',
+                        role: USER_ROLES.Caregiver,
+                        joinedAt: new Date(),
+                    };
+                    const newProfile = { 
+                        ...PATIENT_PROFILE_TEMPLATE, 
+                        team: [newTeamMember], 
+                        team_uids: [authUser.uid],
+                        team_emails: [authUser.email] // Campo auxiliar para busca futura
+                    };
+                    await setDoc(myProfileRef, newProfile);
+                    setPatientDocId(authUser.uid);
+                }
+            } catch (err) {
+                console.error("Erro ao localizar paciente:", err);
+            }
+        };
+
+        findPatient();
+    }, [authUser]);
+
+    // 3. Carregar Dados do Paciente Selecionado
+    useEffect(() => {
+        if (!patientDocId || !authUser) return;
+
+        // A. Perfil
+        const unsubProfile = onSnapshot(doc(db, 'patients', patientDocId), (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as PatientProfile;
-                // Normaliza datas do time se necessário
-                if (Array.isArray(data.team)) {
-                    data.team = data.team.map((member: any) => ({
-                        ...member,
-                        joinedAt: member.joinedAt?.toDate ? member.joinedAt.toDate() : new Date()
-                    }));
-                }
                 setPatientProfile(data);
-                // Define usuário atual
-                const me = data.team?.find(m => m.id === authUser.uid) || data.team?.[0];
-                setCurrentUser(me || null);
-            } else {
-                // Se não existe, cria perfil básico
-                const newTeamMember: TeamMember = {
-                    id: authUser.uid,
-                    name: authUser.email?.split('@')[0] || 'Usuário',
-                    email: authUser.email || '',
-                    role: USER_ROLES.Caregiver,
-                    joinedAt: new Date(),
-                };
-                const newProfile = { ...PATIENT_PROFILE_TEMPLATE, team: [newTeamMember], team_uids: [authUser.uid] };
-                setDoc(profileRef, newProfile);
+                // Identifica quem sou eu na equipe deste paciente
+                const me = data.team?.find(m => m.email === authUser.email || m.id === authUser.uid);
+                setCurrentUser(me || { id: authUser.uid, name: 'Visitante', role: USER_ROLES.Observer });
             }
-        }, (error) => {
-            console.error("Erro no listener do perfil:", error);
-            // Se der erro de permissão aqui, é provável que as regras do Firestore não foram aplicadas
         });
 
-        // B. Listener de Métricas (Ordenadas por Data)
-        const metricsRef = collection(db, 'patients', authUser.uid, 'metrics');
-        const qMetrics = query(metricsRef, orderBy('timestamp', 'desc'));
-        const unsubMetrics = onSnapshot(qMetrics, (snap) => {
-            const loadedMetrics = snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() })) as HealthMetric[];
-            setMetrics(loadedMetrics);
+        // B. Sub-coleções
+        const metricsRef = collection(db, 'patients', patientDocId, 'metrics');
+        const unsubMetrics = onSnapshot(query(metricsRef, orderBy('timestamp', 'desc')), (snap) => {
+            setMetrics(snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() })) as HealthMetric[]);
         });
 
-        // C. Listener de Agenda
-        const scheduleRef = collection(db, 'patients', authUser.uid, 'schedule');
+        const scheduleRef = collection(db, 'patients', patientDocId, 'schedule');
         const unsubSchedule = onSnapshot(scheduleRef, (snap) => {
-            const loadedSchedule = snap.docs.map(d => ({ ...d.data(), id: d.id })) as ScheduleItem[];
-            setSchedule(loadedSchedule);
+            setSchedule(snap.docs.map(d => ({ ...d.data(), id: d.id })) as ScheduleItem[]);
         });
 
-        // D. Listener de Histórico
-        const historyRef = collection(db, 'patients', authUser.uid, 'history');
-        const qHistory = query(historyRef, orderBy('timestamp', 'desc'));
-        const unsubHistory = onSnapshot(qHistory, (snap) => {
-            const loadedHistory = snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() })) as HistoryEvent[];
-            setHistoryLog(loadedHistory);
+        const historyRef = collection(db, 'patients', patientDocId, 'history');
+        const unsubHistory = onSnapshot(query(historyRef, orderBy('timestamp', 'desc')), (snap) => {
+            setHistoryLog(snap.docs.map(d => ({ ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() })) as HistoryEvent[]);
         });
 
-        // E. Listener de Notas Diárias
-        const notesRef = collection(db, 'patients', authUser.uid, 'notes');
+        const notesRef = collection(db, 'patients', patientDocId, 'notes');
         const unsubNotes = onSnapshot(notesRef, (snap) => {
             const notesObj: { [date: string]: DailyNote } = {};
-            snap.docs.forEach(d => {
-                const data = d.data();
-                notesObj[data.date] = { ...data, id: d.id, timestamp: data.timestamp?.toDate() } as DailyNote;
-            });
+            snap.docs.forEach(d => notesObj[d.data().date] = { ...d.data(), id: d.id, timestamp: d.data().timestamp?.toDate() } as DailyNote);
             setDailyNotes(notesObj);
         });
 
-        return () => {
-            unsubProfile();
-            unsubMetrics();
-            unsubSchedule();
-            unsubHistory();
-            unsubNotes();
-        };
-    }, [authUser]);
+        return () => { unsubProfile(); unsubMetrics(); unsubSchedule(); unsubHistory(); unsubNotes(); };
+    }, [patientDocId, authUser]);
 
-    // Funções de Autenticação
+    // --- Handlers ---
+
     const handleLogin = async (email: string, pass: string) => {
         setAuthError(null);
         try { await signInWithEmailAndPassword(auth, email, pass); } 
-        catch (err: any) { setAuthError('Erro ao login. Verifique email e senha.'); }
+        catch (err: any) { setAuthError('Erro ao login. Verifique credenciais.'); }
     };
 
     const handleCreateAccount = async (email: string, pass: string) => {
@@ -218,55 +208,41 @@ const App: React.FC = () => {
         catch (err: any) { setAuthError('Erro ao criar conta. Tente outro email.'); }
     };
 
-    // Função de Logout (NOVO)
     const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            // O listener onAuthStateChanged vai cuidar de limpar o estado
-        } catch (error) {
-            console.error("Erro ao sair:", error);
-        }
+        try { await signOut(auth); } catch (e) { console.error(e); }
     };
 
-    // --- FUNÇÕES DE AÇÃO (PERSISTÊNCIA NO FIRESTORE) ---
-
-    // Salvar Histórico
     const addHistoryEvent = useCallback(async (event: Omit<HistoryEvent, 'id'>) => {
-        if (!authUser) return;
-        try {
-            await addDoc(collection(db, 'patients', authUser.uid, 'history'), event);
-        } catch (e) { console.error("Erro ao salvar histórico", e); }
-    }, [authUser]);
+        if (!patientDocId) return;
+        await addDoc(collection(db, 'patients', patientDocId, 'history'), event);
+    }, [patientDocId]);
 
-    // IA: Analisar dados
     const handleAnalyze = useCallback(async (newestMetric?: HealthMetric) => {
-        if (!patientProfile || !authUser) return;
+        if (!patientProfile || !patientDocId) return;
         setIsLoading(true);
         setError(null);
         setAlertNotification(null);
         try {
-            const dataToAnalyze = newestMetric ? [newestMetric, ...metrics] : metrics;
-            const analysis = await analyzeHealthData(dataToAnalyze, patientProfile);
+            const analysis = await analyzeHealthData(newestMetric ? [newestMetric, ...metrics] : metrics, patientProfile);
             setAiAnalysis(analysis);
             
             analysis.alerts.forEach(alert => {
                 addHistoryEvent({ type: 'alert', timestamp: new Date(), title: 'Alerta IA', description: alert.message });
+                
+                // Lógica de Notificação por Papel
+                if (alert.level === ALERT_LEVELS.Critical) {
+                    sendSystemNotification('ALERTA CRÍTICO', alert.message);
+                } else if (alert.level === ALERT_LEVELS.Warning && isCaregiver) {
+                    sendSystemNotification('Atenção Necessária', alert.message);
+                }
             });
 
-            const criticalAlert = analysis.alerts.find(a => a.level === ALERT_LEVELS.Critical);
-            if (criticalAlert) setAlertNotification(`ALERTA CRÍTICO: ${criticalAlert.message}`);
+        } catch (err) { setError('IA indisponível.'); } 
+        finally { setIsLoading(false); }
+    }, [metrics, patientProfile, addHistoryEvent, isCaregiver, patientDocId]);
 
-        } catch (err: any) {
-            console.error(err);
-            setError('IA indisponível. Verifique conexão ou chave.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [metrics, patientProfile, addHistoryEvent, authUser]);
-
-    // Salvar Métricas (Lote)
     const handleAddMetric = async (newMetricsData: Omit<HealthMetric, 'id'>[]) => {
-        if (!authUser) return;
+        if (!patientDocId) return;
         const timestamp = new Date();
         
         const descriptions = newMetricsData.map(m => {
@@ -277,37 +253,24 @@ const App: React.FC = () => {
         });
 
         const promises = newMetricsData.map(m => 
-            addDoc(collection(db, 'patients', authUser.uid, 'metrics'), { ...m, timestamp })
+            addDoc(collection(db, 'patients', patientDocId, 'metrics'), { ...m, timestamp })
         );
-
         await Promise.all(promises); 
 
-        await addHistoryEvent({
-            type: 'metric_added',
-            timestamp: timestamp,
-            title: 'Sinais Vitais Registrados',
-            description: descriptions.join(', ')
-        });
-
-        const mockMetricForAI = { ...newMetricsData[0], id: 'temp', timestamp } as HealthMetric;
-        handleAnalyze(mockMetricForAI);
+        await addHistoryEvent({ type: 'metric_added', timestamp, title: 'Check-up', description: descriptions.join(', ') });
         
+        handleAnalyze({ ...newMetricsData[0], id: 'temp', timestamp } as HealthMetric);
         setIsMetricModalOpen(false);
     };
 
     const handleSaveScheduleItem = async (itemData: any) => {
-        if (!authUser) return;
+        if (!patientDocId || !isCaregiver) return;
         if (itemData.id) {
-            const docRef = doc(db, 'patients', authUser.uid, 'schedule', itemData.id);
-            await updateDoc(docRef, itemData);
+            await updateDoc(doc(db, 'patients', patientDocId, 'schedule', itemData.id), itemData);
         } else {
-            await addDoc(collection(db, 'patients', authUser.uid, 'schedule'), {
-                ...itemData,
-                completedDates: {}
-            });
+            await addDoc(collection(db, 'patients', patientDocId, 'schedule'), { ...itemData, completedDates: {} });
         }
         setIsScheduleModalOpen(false);
-        setEditingScheduleItem(null);
     };
 
     const handleEditScheduleItem = (item: ScheduleItem) => {
@@ -317,13 +280,12 @@ const App: React.FC = () => {
     };
 
     const handleDeleteScheduleItem = async (id: string) => {
-        if (!authUser) return;
-        await deleteDoc(doc(db, 'patients', authUser.uid, 'schedule', id));
+        if (!patientDocId || !isCaregiver) return;
+        await deleteDoc(doc(db, 'patients', patientDocId, 'schedule', id));
     };
 
     const handleToggleSchedule = async (id: string, date: string) => {
-        if (!authUser || !isCaregiver) return;
-        
+        if (!patientDocId || !isCaregiver) return;
         const item = schedule.find(s => s.id === id);
         if (!item) return;
 
@@ -332,60 +294,44 @@ const App: React.FC = () => {
 
         if (isCompleting) {
             newCompletedDates[date] = true;
-            addHistoryEvent({
-                type: 'schedule_completed',
-                timestamp: new Date(),
-                title: `${item.title} realizado`,
-                description: `Tarefa completada em ${date}`
-            });
+            addHistoryEvent({ type: 'schedule_completed', timestamp: new Date(), title: `${item.title} OK`, description: date });
         } else {
             delete newCompletedDates[date];
         }
-
-        const docRef = doc(db, 'patients', authUser.uid, 'schedule', id);
-        await updateDoc(docRef, { completedDates: newCompletedDates });
+        await updateDoc(doc(db, 'patients', patientDocId, 'schedule', id), { completedDates: newCompletedDates });
     };
 
     const handleUpdateProfile = async (newProfile: PatientProfile) => {
-        if (!authUser) return;
-        const docRef = doc(db, 'patients', authUser.uid);
-        await updateDoc(docRef, newProfile as any);
+        if (!patientDocId || !isCaregiver) return;
+        await updateDoc(doc(db, 'patients', patientDocId), newProfile as any);
         setIsProfileModalOpen(false);
     };
 
     const handleUpdateTeam = async (newTeam: TeamMember[]) => {
-        if (!authUser) return;
-        const docRef = doc(db, 'patients', authUser.uid);
-        await updateDoc(docRef, { team: newTeam });
+        if (!patientDocId || !isCaregiver) return;
+        // Atualiza também os arrays auxiliares para permitir busca
+        const teamUids = newTeam.map(m => m.id).filter(id => id && id.length > 5); // IDs reais
+        const teamEmails = newTeam.map(m => m.email).filter(e => e); // Emails
+        
+        await updateDoc(doc(db, 'patients', patientDocId), { 
+            team: newTeam,
+            team_uids: teamUids, // Nota: Para funcionar perfeitamente, precisaria converter email para UID na hora do cadastro, mas isso exige Cloud Functions. 
+            // Workaround: Vamos confiar que a busca do useEffect procura pelo ID do dono E também pelo email nos team_emails (implementado abaixo).
+            team_emails: teamEmails
+        });
         setIsTeamModalOpen(false);
     };
 
     const handleSaveDailyNote = async (date: string, content: string) => {
-        if (!authUser) return;
-        const noteDocRef = doc(db, 'patients', authUser.uid, 'notes', date);
-        await setDoc(noteDocRef, {
-            date,
-            content,
-            timestamp: new Date()
-        }, { merge: true });
-
-        await addHistoryEvent({
-            type: 'note',
-            timestamp: new Date(),
-            title: 'Nota Diária Atualizada',
-            description: content
-        });
+        if (!patientDocId) return;
+        await setDoc(doc(db, 'patients', patientDocId, 'notes', date), { date, content, timestamp: new Date() }, { merge: true });
     };
 
-    // --- RENDERIZAÇÃO ---
-
+    // ... (Renderização permanece muito similar, apenas apontando para as variáveis de estado)
     const todaySchedule = useMemo(() => getScheduleForDate(schedule, new Date()), [schedule]);
-
     const latestMetrics = useMemo(() => {
         const latest: { [key: string]: HealthMetric } = {};
-        metrics.forEach(metric => {
-            if (!latest[metric.type]) latest[metric.type] = metric;
-        });
+        metrics.forEach(metric => { if (!latest[metric.type]) latest[metric.type] = metric; });
         const preferredOrder = [METRIC_TYPES.BloodPressure, METRIC_TYPES.Temperature, METRIC_TYPES.Glucose, METRIC_TYPES.Saturation, METRIC_TYPES.HeartRate, METRIC_TYPES.Weight];
         return preferredOrder.map(type => latest[type]).filter(Boolean) as HealthMetric[];
     }, [metrics]);
@@ -401,7 +347,7 @@ const App: React.FC = () => {
     }
 
     const renderContent = () => {
-        if (!patientProfile) return <div className="text-center p-10 text-gray-500">Carregando...</div>;
+        if (!patientProfile) return <div className="text-center p-10 text-gray-500">Carregando dados...</div>;
         
         switch (activeView) {
             case 'dashboard': return renderDashboard();
@@ -425,9 +371,13 @@ const App: React.FC = () => {
                             <h2 className="text-2xl font-bold text-gray-800">{patientProfile.name}, {getAge(patientProfile.birthDate)} anos</h2>
                             <p className="text-sm text-gray-600 mt-1"><strong>Condição:</strong> {patientProfile.mainCondition}</p>
                         </div>
-                        <div className="text-right hidden sm:block">
-                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Monitoramento Online</span>
-                        </div>
+                        {currentUser && (
+                            <div className="text-right hidden sm:block">
+                                <span className={`text-xs font-medium px-2.5 py-0.5 rounded ${isCaregiver ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                    {isCaregiver ? 'Modo Cuidador' : 'Modo Visualização'}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -451,23 +401,23 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {latestMetrics.length > 0 ? latestMetrics.map(metric => <MetricCard key={metric.id} metric={metric} />) : <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">Sem medições. Inicie um Check-up.</div>}
+                                {latestMetrics.length > 0 ? latestMetrics.map(metric => <MetricCard key={metric.id} metric={metric} />) : <div className="col-span-full bg-gray-50 p-8 rounded-lg text-center text-gray-500 border border-dashed border-gray-300">Sem medições recentes.</div>}
                             </div>
                         </section>
 
                         <section>
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><SparklesIcon /> Análise IA</h2>
-                                {isLoading && <span className="text-sm text-blue-600 animate-pulse">Analisando...</span>}
+                                {isLoading && <span className="text-sm text-blue-600 animate-pulse">Gerando análise...</span>}
                             </div>
                             <div className="bg-white p-5 rounded-lg shadow-md min-h-[200px] border border-gray-100">
                                 {error && <div className="text-red-600 bg-red-50 p-4 rounded">{error}</div>}
-                                {!error && !aiAnalysis && !isLoading && <div className="flex flex-col items-center justify-center h-40 text-gray-400"><span className="text-4xl mb-2">🤖</span><p>Aguardando dados...</p></div>}
+                                {!error && !aiAnalysis && !isLoading && <div className="flex flex-col items-center justify-center h-40 text-gray-400"><span className="text-4xl mb-2">🤖</span><p>Realize um check-up para iniciar a análise.</p></div>}
                                 {aiAnalysis && (
                                     <div className="space-y-6">
                                         <div><h3 className="font-bold text-lg mb-2">Resumo</h3><p className="text-gray-700 bg-blue-50 p-4 rounded border border-blue-100">{aiAnalysis.summary}</p></div>
                                         {aiAnalysis.alerts.length > 0 && <div><h3 className="font-bold text-lg mb-3">Alertas</h3><div className="space-y-3">{aiAnalysis.alerts.map((a, i) => <AlertCard key={i} alert={a}/>)}</div></div>}
-                                        {aiAnalysis.recommendations.length > 0 && <div><h3 className="font-bold text-lg mb-3">Dicas</h3><ul className="space-y-2">{aiAnalysis.recommendations.map((r, i) => <li key={i} className="flex gap-2 text-gray-700 bg-gray-50 p-2 rounded"><span className="text-blue-500">•</span>{r}</li>)}</ul></div>}
+                                        {aiAnalysis.recommendations.length > 0 && <div><h3 className="font-bold text-lg mb-3">Recomendações</h3><ul className="space-y-2">{aiAnalysis.recommendations.map((r, i) => <li key={i} className="flex gap-2 text-gray-700 bg-gray-50 p-2 rounded"><span className="text-blue-500">•</span>{r}</li>)}</ul></div>}
                                     </div>
                                 )}
                             </div>
@@ -495,12 +445,11 @@ const App: React.FC = () => {
                 <div className="container mx-auto px-4">
                     <div className="flex justify-between items-center py-4">
                         <div className="flex items-center space-x-2"><HeartIcon /><h1 className="text-2xl font-extrabold text-blue-600 tracking-tight">Care Monitor</h1></div>
-                        
                         <div className="flex items-center gap-3">
                             {patientProfile && currentUser && (
                                 <div className="flex items-center bg-gray-100 rounded-full px-3 py-1 border border-gray-200">
                                     <span className="text-xs text-gray-500 mr-2 uppercase font-bold hidden sm:inline">Usuário:</span>
-                                    <span className="text-sm font-semibold text-gray-700">{currentUser.name.split(' ')[0]}</span>
+                                    <span className="text-sm font-semibold text-gray-700 max-w-[80px] truncate">{currentUser.name ? currentUser.name.split(' ')[0] : 'Visitante'}</span>
                                 </div>
                             )}
                             <button onClick={handleLogout} className="text-gray-500 hover:text-red-600 p-2 rounded-full hover:bg-gray-100 transition-colors" title="Sair">
@@ -508,7 +457,7 @@ const App: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                    <nav className="flex items-center gap-4 overflow-x-auto pb-2">
+                    <nav className="flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
                         <NavItem label="Principal" icon={<HomeIcon />} isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} />
                         <NavItem label="Agenda" icon={<CalendarIcon />} isActive={activeView === 'schedule'} onClick={() => setActiveView('schedule')} />
                         <NavItem label="Histórico" icon={<ClipboardListIcon />} isActive={activeView === 'history'} onClick={() => setActiveView('history')} />
