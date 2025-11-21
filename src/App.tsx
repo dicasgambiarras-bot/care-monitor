@@ -12,7 +12,7 @@ import { getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth'; // IMPORTANTE: Importado signOut
 import type { User } from 'firebase/auth';
 import { toYYYYMMDD, getScheduleForDate } from './utils/dateUtils';
-import { analyzeHealthData } from './utils/analysisUtils';
+import { analyzeHealthData } from './services/geminiService';
 import { ScheduleCard } from './components/ScheduleCard';
 import { MetricCard } from './components/MetricCard';
 import { AlertCard } from './components/AlertCard';
